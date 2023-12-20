@@ -1,5 +1,7 @@
-### Webscraping with Selenium
+### Webscraping with Selenium, a Simple Example
 This can be done headless, but for now doing on laptop for rapid development
+
+__Note__: _right click on inspect element and then follow copy menu to get XPATH_
 
 #### requirements.txt
 ```
