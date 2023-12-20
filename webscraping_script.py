@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 import sys
@@ -6,21 +7,20 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import ElementClickInterceptedException
 
-print('Reference: https://iqss.github.io/dss-webscrape/filling-in-web-forms.html')
-print('Reference: https://selenium-python.readthedocs.io/locating-elements.html')
-print('Reference: https://pythonbasics.org/selenium-wait-for-page-to-load/')
-
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-def wait_for_loading(driver, xpath, clickable=False, plural=False):
+logging.warning('Reference: https://iqss.github.io/dss-webscrape/filling-in-web-forms.html')
+logging.warning('Reference: https://selenium-python.readthedocs.io/locating-elements.html')
+logging.warning('Reference: https://pythonbasics.org/selenium-wait-for-page-to-load/')
+logging.warning('Reference: https://www.selenium.dev/selenium/docs/api/py/webdriver_chromium/selenium.webdriver.chromium.webdriver.html?highlight=refresh#selenium.webdriver.chromium.webdriver.ChromiumDriver.refresh')
+logging.warning('Reference: https://www.selenium.dev/documentation/webdriver/actions_api/mouse/')
+
+def wait_for_loading(driver, xpath, plural=False):
     timeout = 30
     try:
-        if clickable:
-            element_present = EC.element_to_be_clickable((By.XPATH, xpath))
-            print(f'Checking if {xpath} is clickable')
-        elif plural:
+        if plural:
             element_present = EC.presence_of_all_elements_located((By.XPATH, xpath))
             print(f'Checking for row td {xpath}')
         else:
@@ -36,7 +36,7 @@ def wait_for_loading(driver, xpath, clickable=False, plural=False):
 CODE = os.getenv('CODE')
 URL = os.getenv('URL')
 PICKLE_FN = os.getenv('PICKLE_FN', 'current_datadump.pickle')
-READ_PICKLE =  os.getenv('READ_PICKLE')
+READ_PICKLE =  os.getenv('READ_PICKLE', 'no') == 'yes'
 
 if not READ_PICKLE:
     if not CODE:
@@ -71,11 +71,15 @@ def main():
         xpath = '/html/body/app-root/div/main/div/app-list/div/div[3]/div[1]/table/tbody'
         _ = wait_for_loading(driver, xpath)
         table_body = driver.find_element(By.XPATH, xpath)
+        sleep(0.5)
 
         xpath = ".//tr"
         _ = wait_for_loading(table_body, xpath, plural=True)
 
-        for row in table_body.find_elements(By.XPATH, ".//tr"):
+        table_rows = driver.find_elements(By.XPATH, xpath)
+        sleep(0.5)
+
+        for row in table_rows:
             l = [td.text for td in row.find_elements(By.XPATH, ".//td")]
             if l:
                 if l not in student_list:
@@ -88,13 +92,11 @@ def main():
 
         try:
             xpath_next = '/html/body/app-root/div/main/div/app-list/div/div[3]/div[2]/nav/ul/li[3]/a'
-            # Not working: can not get the first skip
-            _ = wait_for_loading(driver, xpath_next, clickable=True)
+            _ = wait_for_loading(driver, xpath_next)
 
             next_page_link = driver.find_element(By.XPATH, xpath_next)
-            sleep(1)
-            next_page_link.click()
-            sleep(1)
+            driver.execute_script("arguments[0].click();", next_page_link)
+            sleep(0.5)
 
         except ElementClickInterceptedException as e:
             print(f'Finished: {type(e)} - {e}')
@@ -114,6 +116,7 @@ if __name__ == '__main__':
         ''')
     finally:
         if not READ_PICKLE:
+            driver.quit()
             with open(PICKLE_FN, 'wb') as fh:
                 pickle.dump(student_list, fh)
 
