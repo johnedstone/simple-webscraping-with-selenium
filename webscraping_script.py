@@ -22,13 +22,17 @@ URL = os.getenv('URL')
 PICKLE_FN = os.getenv('PICKLE_FN', 'current_datadump.pickle')
 READ_PICKLE =  os.getenv('READ_PICKLE', 'no') == 'yes'
 TIMEOUT = float(os.getenv('TIMEOUT', '0.5'))
-TIMEOUT_TO_EXIT = float(os.getenv('TIMEOUT_TO_EXIT', '30'))
+TIMEOUT_TO_WAIT_ON_ELEMENT = float(os.getenv('TIMEOUT_TO_WAIT_ON_ELEMENT', '30'))
+
+TOTAL = 0
+UNIQUE = 0
+DUPLICATES = 0
 
 logging.warning(f'URL: {URL}')
 logging.warning(f'PICKLE_FN: {PICKLE_FN}')
 logging.warning(f'READ_PICKLE: {READ_PICKLE}')
 logging.warning(f'TIMEOUT: {TIMEOUT}')
-logging.warning(f'TIMEOUT_TO_EXIT: {TIMEOUT_TO_EXIT}')
+logging.warning(f'TIMEOUT_TO_WAIT_ON_ELEMENT: {TIMEOUT_TO_WAIT_ON_ELEMENT}')
 
 def wait_for_loading(driver, xpath, plural=False):
     try:
@@ -38,7 +42,7 @@ def wait_for_loading(driver, xpath, plural=False):
         else:
             element_present = EC.presence_of_element_located((By.XPATH, xpath))
 
-        WebDriverWait(driver, TIMEOUT_TO_EXIT).until(element_present)
+        WebDriverWait(driver, TIMEOUT_TO_WAIT_ON_ELEMENT).until(element_present)
     except TimeoutException:
         logging.warning(f'Timed out waiting for {xpath} to load')
         sys.exit()
@@ -74,6 +78,9 @@ if not READ_PICKLE:
     student_list = []
 
 def main():
+    global TOTAL
+    global UNIQUE
+    global DUPLICATES
     while True:
         xpath = '/html/body/app-root/div/main/div/app-list/div/div[3]/div[1]/table/tbody'
         _ = wait_for_loading(driver, xpath)
@@ -88,15 +95,24 @@ def main():
         for row in table_rows:
             l = [td.text for td in row.find_elements(By.XPATH, ".//td")]
             if l:
+                TOTAL += 1
                 if l not in student_list:
                     student_list.append(l)
-                    print(l)
+                    logging.warning(f'{TOTAL}: {l}')
+                    UNIQUE += 1
+
                 else:
-                    print(f'DUPLICATE: {l}')
-        logging.warning(len(student_list))
+                    logging.warning(f'{TOTAL} DUPLICATE: {l}')
+                    DUPLICATES += 1
+        logging.warning(f'Unique students: {len(student_list)}')
         #_ = input('Press enter to continue')
 
         try:
+            xpath_page = '/html/body/app-root/div/main/div/app-list/div/div[3]/div[2]/nav/ul/li[1]/p'
+            _ = wait_for_loading(driver, xpath_page)
+            page_no = driver.find_element(By.XPATH, xpath_page)
+            logging.warning(f'Page number: {page_no.text}')
+
             xpath_next = '/html/body/app-root/div/main/div/app-list/div/div[3]/div[2]/nav/ul/li[3]/a'
             _ = wait_for_loading(driver, xpath_next)
 
@@ -112,8 +128,8 @@ if __name__ == '__main__':
         if READ_PICKLE:
             with open(PICKLE_FN, 'rb') as fh:
                 students = pickle.load(fh)
-                print(students)
-                print(f'Number of students: {len(students)}')
+                logging.warning(students)
+                logging.warning(f'Number of students: {len(students)}')
         else:
             _ = main()
     except KeyboardInterrupt as e:
@@ -125,6 +141,9 @@ if __name__ == '__main__':
             driver.quit()
             with open(PICKLE_FN, 'wb') as fh:
                 pickle.dump(student_list, fh)
+                logging.warning(f'TOTAL: {TOTAL}')
+                logging.warning(f'UNIQUE: {UNIQUE}')
+                logging.warning(f'DUPLICATES: {DUPLICATES}')
 
             logging.warning(f'Finished writing {PICKLE_FN}')
 
